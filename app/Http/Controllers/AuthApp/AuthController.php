@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\AuthApp;
 
 use App\Helpers\ApiCodes;
-use App\Http\Requests\LoginRequest;
+use App\Http\Requests\AuthApp\LoginRequest;
 use GuzzleHttp\Client;
 use Illuminate\Http\Request;
-use Laravel\Passport\Client as OClient;
 use Illuminate\Support\Facades\Request as DomainRequest;
+use Laravel\Passport\Client as OClient;
 
 class AuthController extends AuthBaseController
 {
