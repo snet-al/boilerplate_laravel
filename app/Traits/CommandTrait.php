@@ -17,9 +17,9 @@ trait CommandTrait
 
     public function appNamespace()
     {
-        $appNameArgument = $this->option('app');
+        $appNameOption = $this->option('app');
 
-        return ucfirst($appNameArgument) . 'App';
+        return ucfirst($appNameOption) . 'App';
     }
 
     public function appFullNamespace($rootNamespace)
