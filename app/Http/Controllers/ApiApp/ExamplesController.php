@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\ApiApp;
 
 use App\Helpers\ApiCodes;
-use App\Http\Requests\ExampleRequest;
-use App\Http\Requests\StoreExampleRequest;
-use App\Http\Requests\UpdateExampleRequest;
-use App\Http\Resources\ExampleIndividualResource;
-use App\Http\Resources\ExampleListResource;
-use App\Models\Example;
+use App\Http\Requests\ApiApp\ExampleRequest;
+use App\Http\Requests\ApiApp\StoreExampleRequest;
+use App\Http\Requests\ApiApp\UpdateExampleRequest;
+use App\Http\Resources\ApiApp\ExampleIndividualResource;
+use App\Http\Resources\ApiApp\ExampleListResource;
+use App\Models\ApiApp\Example;
 
 class ExamplesController extends ApiBaseController
 {
