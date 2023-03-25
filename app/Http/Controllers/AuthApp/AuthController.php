@@ -19,8 +19,7 @@ class AuthController extends AuthBaseController
         ];
 
         if (auth()->attempt($data)) {
-            $oClient = OClient::where('password_client', 1)->first();
-            $response = $this->getTokenAndRefreshToken($oClient, request('email'), request('password'));
+            $response = $this->getTokenAndRefreshToken(request('email'), request('password'));
 
             return $this->successResponseWithData($response);
         }
@@ -37,17 +36,20 @@ class AuthController extends AuthBaseController
         $domain = DomainRequest::getHttpHost() . '/oauth/token';
 
         try {
-            $response = $http->request('POST', $domain, [
-                'form_params' => [
-                    'grant_type' => 'refresh_token',
-                    'refresh_token' => $refreshToken,
-                    'client_id' => $oClient->id,
-                    'client_secret' => $oClient->secret,
-                    'scope' => '*',
-                ],
-            ]);
 
-            $result = json_decode((string) $response->getBody(), true);
+            $payload = [
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $refreshToken,
+                'client_id' => $oClient->id,
+                'client_secret' => $oClient->secret,
+                'scope' => '*',
+            ];
+
+            $request = Request::create(url('/oauth/token'), 'POST', $payload);
+            $response = app()->handle($request);
+
+            $result = json_decode((string) $response->getContent(), true);
+
             $message = ApiCodes::getSuccessMessage();
             $statusCode = ApiCodes::SUCCESS;
 
@@ -60,25 +62,23 @@ class AuthController extends AuthBaseController
         }
     }
 
-    public function getTokenAndRefreshToken(OClient $oClient, $email, $password)
+    public function getTokenAndRefreshToken($email, $password)
     {
         $oClient = OClient::where('password_client', 1)->first();
-        $http = new Client;
 
-        $domain = DomainRequest::getHttpHost() . '/oauth/token';
+        $payload = [
+            'grant_type' => 'password',
+            'client_id' => $oClient->id,
+            'client_secret' => $oClient->secret,
+            'username' => $email,
+            'password' => $password,
+            'scope' => '*',
+        ];
 
-        $response = $http->request('POST', $domain, [
-            'form_params' => [
-                'grant_type' => 'password',
-                'client_id' => $oClient->id,
-                'client_secret' => $oClient->secret,
-                'username' => $email,
-                'password' => $password,
-                'scope' => '*',
-            ],
-        ]);
+        $request = Request::create(url('/oauth/token'), 'POST', $payload);
+        $response = app()->handle($request);
 
-        return json_decode((string) $response->getBody(), true);
+        return json_decode((string) $response->getContent(), true);
     }
 
     public function logout()

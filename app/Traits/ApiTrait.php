@@ -4,6 +4,7 @@ namespace App\Traits;
 
 use App\Helpers\ApiCodes;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 trait ApiTrait
@@ -210,6 +211,17 @@ trait ApiTrait
         );
 
         return response()->json($json, $httpStatusCode);
+    }
+
+    public function resourceFields(Request $request)
+    {
+        $resourceFields = [];
+
+        foreach ($request->fields ?? [] as $field) {
+            $resourceFields[$field] = $this->$field;
+        }
+
+        return $resourceFields;
     }
 
     /**

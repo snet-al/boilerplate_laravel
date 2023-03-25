@@ -2,11 +2,13 @@
 
 namespace App\Http\Resources\ApiApp;
 
+use App\Traits\ApiTrait;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ExampleListResource extends JsonResource
 {
+    use ApiTrait;
     /**
      * Transform the resource into an array.
      *
@@ -14,9 +16,6 @@ class ExampleListResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return [
-            'id' => $this->id,
-            'title' => $this->title,
-        ];
+        return $this->resourceFields($request);
     }
 }
