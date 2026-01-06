@@ -8,7 +8,7 @@ use App\Http\Requests\ApiApp\StoreExampleRequest;
 use App\Http\Requests\ApiApp\UpdateExampleRequest;
 use App\Http\Resources\ApiApp\ExampleIndividualResource;
 use App\Http\Resources\ApiApp\ExampleListResource;
-use App\Models\ApiApp\Example;
+use App\Models\Example;
 
 class ExamplesController extends ApiBaseController
 {
