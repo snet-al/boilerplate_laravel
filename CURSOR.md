@@ -77,6 +77,9 @@ database/
 - **Modularity**: Controllers, Requests, and Resources are organized by app type (`ApiApp/`, `AuthApp/`)
 - **Consistency**: All API controllers extend `ApiBaseController` for standardized responses
 - **Separation**: Models are placed directly in `app/Models/` (no subfolders) to be shared across the app
+- **Fat Model Paradigm**: All domain/business logic resides in models, not in service classes
+- **Thin Controllers**: Controllers are thin - they receive requests, call model methods, and return responses
+- **Services for External Only**: Service classes are only used for external integrations (third-party APIs, HTTP clients, etc.)
 - **Validation**: All endpoints use Form Requests for validation
 - **Resources**: All responses use Laravel Resources for consistent data formatting
 - **Authentication**: Uses Laravel Passport (OAuth2) for API authentication
@@ -259,7 +262,8 @@ return $this->responseToJson(
 - Examples: `AuthController.php` (login, logout, refresh token)
 
 **Key Principles**:
-- Controllers should be thin - delegate business logic to services if needed
+- Controllers should be thin - they receive requests, call model methods, and return responses
+- All business/domain logic goes in models (fat model paradigm)
 - All controllers must use Form Requests for validation
 - All controllers must use Resources for responses
 - All API controllers require `auth:api` middleware (applied at route level)
@@ -267,7 +271,7 @@ return $this->responseToJson(
 **When to Add Files Here**:
 - When creating a new API resource (CRUD operations)
 - When adding new authentication endpoints
-- **Don't add here**: Business logic (create service classes instead)
+- **Don't add here**: Business logic (put it in models instead)
 
 ---
 
@@ -400,17 +404,7 @@ return $this->responseToJson(
 - When registering new services or bindings
 - When configuring application-wide settings
 
-**RouteServiceProvider Pattern**:
-```php
-// Routes are registered with prefixes
-Route::middleware('api')
-    ->prefix('api')
-    ->group(base_path('routes/api.php'));
-
-Route::middleware('api')
-    ->prefix('auth')
-    ->group(base_path('routes/auth.php'));
-```
+**RouteServiceProvider Pattern**: See `app/Providers/RouteServiceProvider.php` for route prefix configuration.
 
 ---
 
@@ -530,23 +524,40 @@ Routes are automatically prefixed in `RouteServiceProvider`:
 - **Auth routes**: `/auth/*` (e.g., `/auth/login`, `/auth/logout`)
 - **API routes**: `/api/*` (e.g., `/api/examples`, `/api/products`)
 
+### Multiple Micro Apps and Route Prefixes
+
+When you have multiple micro apps (e.g., `ApiApp`, `AdminApp`, `PublicApp`), each app type should have its own route prefix to reflect in the API path.
+
+**Example Structure with Multiple Apps**:
+
+```
+app/Http/Controllers/
+├── ApiApp/          → Routes in `/api/*`
+├── AdminApp/        → Routes in `/admin/*`
+├── PublicApp/       → Routes in `/public/*`
+└── AuthApp/         → Routes in `/auth/*`
+```
+
+**Configuring Route Prefixes**: See `app/Providers/RouteServiceProvider.php` for route prefix configuration. Add additional app prefixes following the same pattern.
+
+**Resulting API Paths**:
+
+- `ApiApp` controllers → `/api/products`, `/api/examples`
+- `AdminApp` controllers → `/admin/users`, `/admin/settings`
+- `PublicApp` controllers → `/public/products`, `/public/categories`
+- `AuthApp` controllers → `/auth/login`, `/auth/logout`
+
+**Key Principles**:
+- Each micro app should have its own route file (e.g., `routes/admin.php`, `routes/public.php`)
+- Each route file should have its own prefix that matches the app type
+- Controllers are organized by app type in folders (`ApiApp/`, `AdminApp/`, etc.)
+- Routes reflect the app type in the URL path for clear separation
+
 ### Route Structure
 
 #### API Routes (`routes/api.php`)
 
-All API routes **MUST** be protected with `auth:api` middleware:
-
-```php
-<?php
-
-use App\Http\Controllers\ApiApp\ExamplesController;
-use Illuminate\Support\Facades\Route;
-
-Route::group(['middleware' => ['auth:api']], function () {
-    Route::resource('examples', ExamplesController::class);
-    // Add more resource routes here
-});
-```
+All API routes **MUST** be protected with `auth:api` middleware. See `routes/api.php` for route structure example.
 
 **Key Points:**
 - Use `Route::resource()` for standard CRUD operations
@@ -555,23 +566,7 @@ Route::group(['middleware' => ['auth:api']], function () {
 
 #### Auth Routes (`routes/auth.php`)
 
-Authentication routes are split between public and protected:
-
-```php
-<?php
-
-use App\Http\Controllers\AuthApp\AuthController;
-use Illuminate\Support\Facades\Route;
-
-// Public routes (no authentication required)
-Route::post('login', [AuthController::class, 'login']);
-Route::post('refresh-token', [AuthController::class, 'refreshToken']);
-
-// Protected routes (authentication required)
-Route::group(['middleware' => ['auth:api']], function () {
-    Route::post('logout', [AuthController::class, 'logout']);
-});
-```
+Authentication routes are split between public and protected. See `routes/auth.php` for route structure.
 
 **Key Points:**
 - `login` and `refresh-token` are public (no auth required)
@@ -593,6 +588,8 @@ When adding a new resource:
 
 3. The route will be available at `/api/products` with all RESTful endpoints
 
+**Note for Multiple Micro Apps**: If you have multiple micro apps (e.g., `AdminApp`, `PublicApp`), each should have its own route file with its own prefix. See the "Multiple Micro Apps and Route Prefixes" section above for details.
+
 ---
 
 ## Models
@@ -601,24 +598,8 @@ When adding a new resource:
 Models **MUST** be placed directly in `app/Models/` directory. **DO NOT** create subfolders like `ApiApp` inside Models.
 
 ### Structure
-```php
-<?php
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class Example extends Model
-{
-    use HasFactory;
-
-    protected $fillable = [
-        'title',
-        // ... other fields
-    ];
-}
-```
+See `app/Models/Example.php` for model structure example.
 
 ### Creating Models
 Use the custom command:
@@ -628,44 +609,23 @@ php artisan make:model Example
 
 **Note**: The `MakeModel` command has been customized to place models directly in `app/Models/` without app subfolders.
 
-### Model Relationships
+### Fat Model Paradigm: Domain Logic in Models
 
-Models can define relationships following Laravel's standard Eloquent patterns:
+**This boilerplate follows the "fat model" paradigm where all domain/business logic resides in models, not in service classes.**
 
-```php
-<?php
+Models should contain:
+- **Business logic methods**: Calculations, validations, state changes
+- **Domain operations**: Complex operations that involve the model's data
+- **Query scopes**: Reusable query logic
+- **Accessors/Mutators**: Data transformation logic
+- **Custom static methods**: Factory methods, finders, etc.
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class Product extends Model
-{
-    use HasFactory;
-
-    protected $fillable = [
-        'name',
-        'category_id',
-    ];
-
-    // Define relationships
-    public function category()
-    {
-        return $this->belongsTo(Category::class);
-    }
-
-    public function orders()
-    {
-        return $this->hasMany(Order::class);
-    }
-}
-```
-
-**Key Points**:
-- Relationships follow standard Laravel conventions
-- Use relationships in queries: `Product::with('category')->get()`
-- Access relationships in resources if needed
+**Key Principles**:
+- All business logic related to the model goes in the model
+- Controllers call model methods, not service methods
+- Models can have complex methods that orchestrate multiple operations
+- Use static methods for factory patterns
+- Use instance methods for operations on specific model instances
 
 ### Important Model Guidelines
 
@@ -674,6 +634,9 @@ class Product extends Model
 - Use `HasFactory` trait for model factories
 - Define relationships using standard Eloquent methods
 - Use eager loading (`with()`) to prevent N+1 query problems
+- **Put all domain/business logic in models** (fat model paradigm)
+- Use query scopes for reusable query logic
+- Use accessors/mutators for data transformation
 
 ---
 
@@ -688,26 +651,7 @@ Both base controllers use the `ApiTrait` which provides standardized response me
 
 ### Controller Structure
 
-All API controllers should follow this structure:
-
-```php
-<?php
-
-namespace App\Http\Controllers\ApiApp;
-
-use App\Helpers\ApiCodes;
-use App\Http\Requests\ApiApp\ExampleRequest;
-use App\Http\Requests\ApiApp\StoreExampleRequest;
-use App\Http\Requests\ApiApp\UpdateExampleRequest;
-use App\Http\Resources\ApiApp\ExampleIndividualResource;
-use App\Http\Resources\ApiApp\ExampleListResource;
-use App\Models\Example;  // ⚠️ Import from App\Models, not App\Models\ApiApp
-
-class ExamplesController extends ApiBaseController
-{
-    // All CRUD methods here
-}
-```
+See `app/Http/Controllers/ApiApp/ExamplesController.php` for complete controller structure example.
 
 ### Important Controller Guidelines
 
@@ -715,7 +659,8 @@ class ExamplesController extends ApiBaseController
 - Always use Form Requests for validation (never use `Request` directly)
 - Always use Resources for responses (never return models directly)
 - Always use `ApiCodes` constants (never hardcode status codes)
-- Keep controllers thin - move complex logic to service classes if needed
+- **Keep controllers thin** - they receive requests, call model methods, and return responses
+- **All business logic goes in models** - controllers should not contain business logic
 
 ---
 
@@ -734,28 +679,8 @@ For each resource, create three request classes:
 - Auth requests: `app/Http/Requests/AuthApp/`
 
 ### Structure
-```php
-<?php
 
-namespace App\Http\Requests\ApiApp;
-
-use Illuminate\Foundation\Http\FormRequest;
-
-class ExampleRequest extends FormRequest
-{
-    public function authorize(): bool
-    {
-        return true;
-    }
-
-    public function rules(): array
-    {
-        return [
-            // Validation rules
-        ];
-    }
-}
-```
+See `app/Http/Requests/ApiApp/ExampleRequest.php` for request structure example.
 
 ### Creating Requests
 Use the custom command with `--app` option:
@@ -767,48 +692,10 @@ php artisan make:request ApiApp/UpdateExampleRequest --app=api
 
 ### Request Validation Patterns
 
-**Base Request** (for filters, query parameters):
-```php
-public function rules(): array
-{
-    return [
-        'search' => 'sometimes|string',
-        'status' => 'sometimes|in:active,inactive',
-        'page' => 'sometimes|integer|min:1',
-        'page-size' => 'sometimes|integer|min:1|max:100',
-    ];
-}
-```
-
-**Store Request** (for creating resources):
-```php
-public function rules(): array
-{
-    return [
-        'name' => 'required|string|max:255',
-        'description' => 'nullable|string',
-        'price' => 'required|numeric|min:0',
-    ];
-}
-```
-
-**Update Request** (for updating resources):
-```php
-public function rules(): array
-{
-    return [
-        'name' => 'sometimes|string|max:255',
-        'description' => 'nullable|string',
-        'price' => 'sometimes|numeric|min:0',
-    ];
-}
-```
-
 **Key Points:**
-- Use `required` for Store requests
-- Use `sometimes` for Update requests (all fields optional)
-- Use `nullable` for optional fields
-- Always validate input data types and constraints
+- Base Request: Use `sometimes` for filters/query params
+- Store Request: Use `required` for required fields
+- Update Request: Use `sometimes` for optional fields
 
 ---
 
@@ -825,25 +712,8 @@ Create two resource classes for each model:
 - API resources: `app/Http/Resources/ApiApp/`
 
 ### Structure
-```php
-<?php
 
-namespace App\Http\Resources\ApiApp;
-
-use App\Traits\ApiTrait;
-use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\JsonResource;
-
-class ExampleIndividualResource extends JsonResource
-{
-    use ApiTrait;
-
-    public function toArray(Request $request): array
-    {
-        return $this->resourceFields($request);
-    }
-}
-```
+See `app/Http/Resources/ApiApp/ExampleIndividualResource.php` for resource structure example.
 
 ### Field Selection
 
@@ -919,35 +789,6 @@ The additional parameters are merged into the response, allowing you to add extr
 - `generalError($message = null, $status = null)` - General error
 - `getJsonResponse($resourceItems, $resourceClass, $asModel = false, $message = null)` - Helper for resources
 
-### Example: Login with Token
-
-```php
-// In AuthController or similar
-$user = User::where('email', $request->email)->first();
-$token = $user->createToken('auth-token')->accessToken;
-
-$data = [new UserResource($user)];
-return $this->responseToJson(
-    ApiCodes::getSuccessMessage(),
-    ApiCodes::SUCCESS,
-    $data,
-    ['token' => $token]  // Additional parameter
-);
-```
-
-Response:
-```json
-{
-    "message": "The action was completed successfully!",
-    "data": [{
-        "id": 1,
-        "name": "John Doe",
-        "email": "john@example.com"
-    }],
-    "meta": {},
-    "token": "eyJ0eXAiOiJKV1QiLCJhbGc..."
-}
-```
 
 ---
 
@@ -974,62 +815,11 @@ The `AuthController` extends `AuthBaseController` and handles:
 
 ### Login Example
 
-```php
-// In AuthController
-public function login(LoginRequest $request)
-{
-    $data = [
-        'email' => $request->email,
-        'password' => $request->password
-    ];
-
-    if (auth()->attempt($data)) {
-        $response = $this->getTokenAndRefreshToken(request('email'), request('password'));
-        return $this->successResponseWithData($response);
-    }
-
-    return $this->generalError(ApiCodes::getWrongCredentialsMessage(), ApiCodes::UNAUTHENTICATED);
-}
-```
-
-### Token Response Format
-
-Login returns:
-```json
-{
-    "message": "The action was completed successfully!",
-    "status": 200,
-    "data": {
-        "token_type": "Bearer",
-        "expires_in": 31536000,
-        "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-        "refresh_token": "def50200..."
-    }
-}
-```
-
-### Using Authentication in Controllers
-
-All API controllers automatically require authentication via `auth:api` middleware. Access the authenticated user:
-
-```php
-$user = auth()->user();
-// or
-$user = \auth()->user();
-```
+See `app/Http/Controllers/AuthApp/AuthController.php` for login implementation.
 
 ### Token Revocation
 
-The `User` model includes a `revokeToken()` method for logout:
-
-```php
-public function logout()
-{
-    $user = auth()->user();
-    $user->revokeToken();
-    return $this->responseToJson(ApiCodes::getSuccessMessage(), ApiCodes::SUCCESS);
-}
-```
+See `app/Http/Controllers/AuthApp/AuthController.php` for logout implementation using `revokeToken()` method.
 
 ---
 
@@ -1045,105 +835,15 @@ All CRUD controllers should implement these methods:
 4. **`update()`** - Update existing resource
 5. **`destroy()`** - Delete resource
 
-### Index Method Pattern
+### CRUD Method Patterns
 
-The `index()` method **MUST** handle all filtering logic. Use this exact pattern:
-
-```php
-public function index(ExampleRequest $request)
-{
-    $query = Example::query();
-
-    // Add filters here
-    if ($request->filled('search')) {
-        $query->where('title', 'like', '%' . $request->search . '%');
-    }
-    
-    if ($request->filled('status')) {
-        $query->where('status', $request->status);
-    }
-
-    // Fetch results (handles pagination and sorting automatically)
-    $examples = $this->fetchResults($query);
-
-    if ($examples->isEmpty()) {
-        return $this->resourceNotFound(null, ApiCodes::SUCCESS);
-    }
-
-    return $this->getJsonResponse($examples, ExampleListResource::class);
-}
-```
+See `app/Http/Controllers/ApiApp/ExamplesController.php` for complete CRUD method implementations (`index()`, `show()`, `store()`, `update()`, `destroy()`).
 
 **Key Points:**
 - All filtering logic goes in `index()`
 - Use `$this->fetchResults($query)` for pagination and sorting
-- Return `ExampleListResource::class` for collections
-
-### Show Method Pattern
-
-```php
-public function show(ExampleRequest $request, $exampleId)
-{
-    $example = Example::query()->find($exampleId);
-
-    return $example ?
-        $this->getJsonResponse($example, ExampleIndividualResource::class) :
-        $this->resourceNotFound();
-}
-```
-
-### Store Method Pattern
-
-```php
-public function store(StoreExampleRequest $request)
-{
-    $example = Example::query()->create($request->all());
-
-    if (!$example) {
-        return $this->generalError();
-    }
-
-    return $this->getJsonResponse($example, ExampleIndividualResource::class);
-}
-```
-
-### Update Method Pattern
-
-```php
-public function update(UpdateExampleRequest $request, $exampleId)
-{
-    $example = Example::query()->find($exampleId);
-
-    if (!$example) {
-        return $this->resourceNotFound();
-    }
-
-    if (!$example->update($request->all())) {
-        return $this->generalError();
-    }
-
-    return $this->getJsonResponse($example, ExampleIndividualResource::class);
-}
-```
-
-### Destroy Method Pattern
-
-```php
-public function destroy(ExampleRequest $request, $exampleId)
-{
-    $example = Example::find($exampleId);
-
-    if (!$example) {
-        return $this->resourceNotFound();
-    }
-
-    if (!$example->delete()) {
-        return $this->generalError();
-    }
-
-    return $this->successResponse();
-}
-```
+- Return `ExampleListResource::class` for collections, `ExampleIndividualResource::class` for single items
+- If creation requires business logic, create a static method in the model and call it from the controller
 
 ---
 
@@ -1170,31 +870,7 @@ GET /api/examples?sort-by=created_at&descending=true&page-size=10
 
 ### Custom Filtering
 
-Add custom filters in the `index()` method:
-
-```php
-public function index(ExampleRequest $request)
-{
-    $query = Example::query();
-
-    // Custom filters
-    if ($request->filled('status')) {
-        $query->where('status', $request->status);
-    }
-
-    if ($request->filled('date_from')) {
-        $query->whereDate('created_at', '>=', $request->date_from);
-    }
-
-    if ($request->filled('date_to')) {
-        $query->whereDate('created_at', '<=', $request->date_to);
-    }
-
-    $examples = $this->fetchResults($query);
-
-    return $this->getJsonResponse($examples, ExampleListResource::class);
-}
-```
+Add custom filters in the `index()` method using `$request->filled()` checks. See `app/Http/Controllers/ApiApp/ExamplesController.php` for filtering pattern.
 
 ---
 
@@ -1209,59 +885,21 @@ Controllers extend `ApiBaseController` which uses `ApiTrait` and provides:
 - `resourceNotFound()` → 404 response
 - `generalError()` → 500 response
 
-**Why:** This guarantees a consistent response envelope across all endpoints.
+### 2. Pagination via ApiTrait
 
-### 2. Pagination Service
-
-`fetchResults()` method from `ApiTrait` centralizes pagination logic.
-
-**Request query params:**
-- `page` (default 1), `page-size` (default 25), `sort-by`, `descending` (default `false`), `no-pagination` (default `false`)
-
-**Usage in controllers:**
-```php
-$results = $this->fetchResults($query);
-// Automatically handles pagination, sorting, and no-pagination option
-```
-
-**Why:** This keeps pagination consistent and keeps controllers focused on business logic.
+`fetchResults()` handles pagination, sorting. Query params: `page`, `page-size`, `sort-by`, `descending`, `no-pagination`.
 
 ### 3. Form Requests for Validation
-
-For each resource, create three request classes:
-- Base Request: For `index`, `show`, `destroy` (filters, query params)
-- Store Request: For `store` (required fields)
-- Update Request: For `update` (use `sometimes` for optional fields)
-
-**Why:** Centralizes validation logic and keeps controllers clean.
+Three request types per resource: Base (filters), Store (required), Update (`sometimes`).
 
 ### 4. Resources for Response Formatting
-
-Create two resource classes per model:
-- Individual Resource: For single items (`show`, `store`, `update`)
-- List Resource: For collections (`index`)
-
-Both use `resourceFields($request)` for field selection via `?fields=...` query parameter.
-
-**Why:** Ensures consistent response format and allows clients to request specific fields.
+Two resource types per model: Individual (single items), List (collections). Both use `resourceFields($request)`.
 
 ### 5. Models in Shared Location
+Models directly in `app/Models/` (no subfolders) - shared across all app types.
 
-Models are placed directly in `app/Models/` (no subfolders) to be shared across the app.
-
-**Why:** Prevents duplication and allows models to be used by multiple app types.
-
-### 6. Authentication Middleware
-
-All API routes use `auth:api` middleware (Laravel Passport).
-
-**Why:** Standard OAuth2 flow with JWT tokens; middleware is applied at route group level.
-
-### 7. ApiCodes for Status Codes
-
-Always use `ApiCodes` constants and methods instead of hardcoding values.
-
-**Why:** Ensures consistency and makes it easy to update messages/codes globally.
+### 6. ApiCodes for Status Codes
+Always use `ApiCodes` constants and methods - never hardcode values.
 
 ---
 
@@ -1404,40 +1042,6 @@ Migrations follow Laravel's standard naming:
 - `YYYY_MM_DD_HHMMSS_create_table_name_table.php`
 - Example: `2023_03_19_223133_create_examples_table.php`
 
-### Migration Structure
-
-```php
-<?php
-
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
-return new class extends Migration
-{
-    public function up(): void
-    {
-        Schema::create('examples', function (Blueprint $table) {
-            $table->id();
-            $table->string('title');
-            $table->timestamps();
-        });
-    }
-
-    public function down(): void
-    {
-        Schema::dropIfExists('examples');
-    }
-};
-```
-
-### Key Points
-
-- Always include `$table->id()` for primary key
-- Always include `$table->timestamps()` for created_at/updated_at
-- Use descriptive column types (`string`, `text`, `integer`, `boolean`, etc.)
-- Implement `down()` method to reverse the migration
-
 ### Creating Migrations
 
 ```bash
@@ -1455,13 +1059,9 @@ php artisan migrate:fresh  # Drops all tables and re-runs migrations
 
 ### Migration Best Practices
 
-- Always implement `down()` - make migrations reversible
-- Test migrations: test `up()`, test `down()`, test on copy of production data
-- Use descriptive names: `CreateProductsTable`, `AddStatusToProducts`, etc.
-- One change per migration - keep migrations focused and atomic
-- Handle existing data when adding/modifying columns
-- Never modify migrations that have run in production - create a new migration instead
-- Provide defaults when adding NOT NULL columns to existing tables
+- Always implement `down()` method
+- One change per migration
+- Never modify migrations that have run in production
 
 ---
 
@@ -1490,22 +1090,7 @@ The exception handler manages how exceptions are reported and rendered. Currentl
 
 ### Custom Exception Responses
 
-To customize exception responses for API endpoints, modify the `render()` method in `Handler.php`:
-
-```php
-public function render($request, Throwable $e)
-{
-    if ($request->is('api/*') || $request->is('auth/*')) {
-        // Return JSON response for API routes
-        return response()->json([
-            'message' => $e->getMessage(),
-            'status' => ApiCodes::INTERNAL_SERVER_ERROR,
-        ], ApiCodes::INTERNAL_SERVER_ERROR);
-    }
-
-    return parent::render($request, $e);
-}
-```
+To customize exception responses for API endpoints, modify the `render()` method in `app/Exceptions/Handler.php`. See the file for current implementation and add API-specific error handling as needed.
 
 ---
 
@@ -1745,50 +1330,13 @@ return $this->getJsonResponse($example, ExampleIndividualResource::class);
    - Requests: Descriptive (e.g., `StoreProductRequest`)
    - Resources: Descriptive (e.g., `ProductIndividualResource`)
 5. **Query optimization**: Use eager loading for relationships: `Model::with('relation')->get()`
-6. **Code organization**: Keep controllers thin, move complex logic to service classes if needed
+6. **Code organization**: Keep controllers thin, put all business logic in models (fat model paradigm)
 7. **Documentation**: Add comments for complex business logic
 8. **Always use ApiCodes**: Never hardcode status codes or messages
 9. **All filtering in index()**: Never create separate search/filter endpoints
 10. **Models in shared location**: Always place models directly in `app/Models/` (no subfolders)
 
 ---
-
-## Important Guidelines Summary
-
-### General
-- Check existing similar resources before creating new ones
-- For API endpoints, always extend `ApiBaseController`
-- All models should be placed directly in `app/Models/` (no subfolders)
-- Use Form Requests for all validation
-- Always use Resources for responses (never return models directly)
-- Use `ApiCodes` constants and methods (never hardcode values)
-- Follow existing patterns and conventions
-
-### API Development
-- Always extend `ApiBaseController` or `AuthBaseController`
-- Always use Form Requests (Base, Store, Update)
-- Always use Resources (Individual for single items, List for collections)
-- All filtering logic goes in `index()` method
-- Use `fetchResults()` for pagination and sorting
-- Use `getJsonResponse()` for resource responses
-- Use `responseToJson()` with optional 4th parameter for additional data
-- All API routes must use `auth:api` middleware
-- Always use `ApiCodes` constants and methods
-
-### Models
-- Always place models directly in `app/Models/` (no subfolders)
-- Always include `$fillable` array for mass assignment protection
-- Use `HasFactory` trait for model factories
-- Define relationships using standard Eloquent methods
-- Use eager loading (`with()`) to prevent N+1 query problems
-
-### Migrations
-- Always implement `down()` - make migrations reversible
-- Test migrations: test `up()`, test `down()`, test on copy of production data
-- Use descriptive names: `CreateProductsTable`, `AddStatusToProducts`, etc.
-- One change per migration - keep migrations focused and atomic
-- Handle existing data when adding/modifying columns
-- Never modify migrations that have run in production - create a new migration instead
 
 ---
 
