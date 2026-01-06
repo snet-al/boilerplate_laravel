@@ -26,13 +26,8 @@ This is a comprehensive guide for AI assistants working on this Laravel boilerpl
 16. [Traits](#traits)
 17. [Database Migrations](#database-migrations)
 18. [Custom Commands](#custom-commands)
-19. [Exception Handling](#exception-handling)
-20. [Middleware](#middleware)
-21. [Key Files Reference](#key-files-reference)
-22. [Important Decision Points & Clarifications](#important-decision-points--clarifications)
-23. [Example References in the Codebase](#example-references-in-the-codebase)
-24. [Common Mistakes to Avoid](#common-mistakes-to-avoid)
-25. [Best Practices](#best-practices)
+19. [Key Files Reference](#key-files-reference)
+20. [Best Practices](#best-practices)
 
 ---
 
@@ -107,47 +102,11 @@ When creating a new API resource, follow this checklist:
 
 ## Creating a New API Resource (Complete Guide)
 
-Follow the **Quick Reference Checklist** above for the step-by-step process. For complete code examples, refer to existing resources in the codebase:
-
-- **`app/Http/Controllers/ApiApp/ExamplesController.php`** - Complete CRUD controller example
-- **`app/Models/Example.php`** - Model example
-- **`app/Http/Requests/ApiApp/ExampleRequest.php`** - Base request example
-- **`app/Http/Resources/ApiApp/ExampleIndividualResource.php`** - Individual resource example
-
-These examples demonstrate all the patterns and conventions used in this project.
+Follow the **Quick Reference Checklist** above. See `app/Http/Controllers/ApiApp/ExamplesController.php` for complete examples.
 
 ---
 
 ## Project Structure
-
-### Directory Organization
-
-```
-app/
-├── Console/Commands/          # Custom artisan commands
-├── Exceptions/                # Exception handlers
-├── Helpers/                   # Helper classes (ApiCodes, etc.)
-├── Http/
-│   ├── Controllers/
-│   │   ├── ApiApp/           # API controllers (use ApiBaseController)
-│   │   └── AuthApp/          # Authentication controllers (use AuthBaseController)
-│   ├── Middleware/           # Custom middleware
-│   ├── Requests/
-│   │   ├── ApiApp/           # Form requests for API endpoints
-│   │   └── AuthApp/          # Form requests for auth endpoints
-│   └── Resources/
-│       └── ApiApp/           # API resources (Individual and List)
-├── Models/                    # ⚠️ Models go DIRECTLY here (NO subfolders like ApiApp)
-├── Providers/                 # Service providers
-└── Traits/                    # Shared traits (ApiTrait, CommandTrait)
-```
-
-### Key Rules
-
-- **Models**: Always placed directly in `app/Models/` (e.g., `app/Models/Example.php`, `app/Models/User.php`)
-- **Controllers**: Organized by app type in subfolders (`ApiApp/`, `AuthApp/`)
-- **Requests**: Organized by app type in subfolders (`ApiApp/`, `AuthApp/`)
-- **Resources**: Organized by app type in subfolders (`ApiApp/`, `AuthApp/`)
 
 ### Important Folders Explained
 
@@ -178,39 +137,6 @@ php artisan make:controller ApiApp/ProductsController --app=api
 
 ---
 
-#### `app/Exceptions/`
-
-**Purpose**: Exception handling and custom error responses.
-
-**What Goes Here**:
-- `Handler.php` - Main exception handler that processes all exceptions
-
-**Key Features**:
-- Currently uses Laravel's default exception handling
-- Can be customized to return JSON responses for API routes
-- Handles validation exceptions, authentication exceptions, etc.
-
-**When to Modify**:
-- When you need custom error response formats for API endpoints
-- When you need to log exceptions differently
-- When you need to handle specific exception types
-
-**Customization Example**:
-```php
-// In Handler.php
-public function render($request, Throwable $e)
-{
-    if ($request->is('api/*') || $request->is('auth/*')) {
-        return response()->json([
-            'message' => $e->getMessage(),
-            'status' => ApiCodes::INTERNAL_SERVER_ERROR,
-        ], ApiCodes::INTERNAL_SERVER_ERROR);
-    }
-    return parent::render($request, $e);
-}
-```
-
----
 
 #### `app/Helpers/`
 
@@ -275,31 +201,6 @@ return $this->responseToJson(
 
 ---
 
-#### `app/Http/Middleware/`
-
-**Purpose**: HTTP middleware that processes requests before they reach controllers.
-
-**What Goes Here**:
-- `Authenticate.php` - Handles authentication
-- `EncryptCookies.php` - Cookie encryption
-- `TrustProxies.php` - Proxy configuration
-- `VerifyCsrfToken.php` - CSRF protection (typically disabled for APIs)
-
-**Key Features**:
-- Middleware runs before requests reach controllers
-- Can modify requests, responses, or terminate early
-- Most API projects use `auth:api` middleware from Laravel Passport
-
-**When to Add Files Here**:
-- When you need to process requests before controllers
-- When you need to add custom authentication/authorization logic
-- When you need to modify requests or responses globally
-
-**Usage**:
-- Register in `app/Http/Kernel.php`
-- Apply to routes or route groups
-
----
 
 #### `app/Http/Requests/`
 
@@ -385,26 +286,7 @@ return $this->responseToJson(
 
 #### `app/Providers/`
 
-**Purpose**: Service providers that bootstrap and configure application services.
-
-**What Goes Here**:
-- `RouteServiceProvider.php` - Registers and configures routes
-- `AppServiceProvider.php` - General application services
-- `AuthServiceProvider.php` - Authentication services
-- `EventServiceProvider.php` - Event listeners
-- `BroadcastServiceProvider.php` - Broadcasting services
-
-**Key Features**:
-- `RouteServiceProvider` is particularly important - it registers all routes with prefixes
-- Service providers run during application bootstrapping
-- Can register services, bind interfaces, configure routes, etc.
-
-**When to Modify**:
-- When adding new route files or changing route prefixes
-- When registering new services or bindings
-- When configuring application-wide settings
-
-**RouteServiceProvider Pattern**: See `app/Providers/RouteServiceProvider.php` for route prefix configuration.
+**Key File**: `RouteServiceProvider.php` - Registers all routes with prefixes (`/api`, `/auth`). See the file for route prefix configuration.
 
 ---
 
@@ -436,74 +318,6 @@ return $this->responseToJson(
 
 ---
 
-#### `database/migrations/`
-
-**Purpose**: Database schema migrations that version control database structure.
-
-**What Goes Here**:
-- Migration files: `YYYY_MM_DD_HHMMSS_descriptive_name.php`
-
-**Key Principles**:
-- Always create migrations before creating models
-- Migrations are versioned by timestamp
-- Must implement both `up()` and `down()` methods
-- `up()` applies changes, `down()` reverses them
-
-**Naming Convention**:
-- `YYYY_MM_DD_HHMMSS_create_<table>_table.php` - Creating tables
-- `YYYY_MM_DD_HHMMSS_add_<column>_to_<table>_table.php` - Adding columns
-- `YYYY_MM_DD_HHMMSS_modify_<table>_table.php` - Modifying tables
-
-**When to Add Files Here**:
-- When creating new database tables
-- When modifying existing table structure
-- When adding/removing columns, indexes, foreign keys
-- **Always**: Create migration before creating/updating model
-
-**Best Practices**:
-- One change per migration (keep focused and atomic)
-- Always implement `down()` method (make reversible)
-- Use descriptive names
-- Never modify migrations that have run in production
-
----
-
-#### `routes/`
-
-**Purpose**: Route definitions that map URLs to controller methods.
-
-**What Goes Here**:
-- `api.php` - API endpoints (protected by `auth:api` middleware)
-- `auth.php` - Authentication endpoints (login, logout, refresh token)
-- `web.php` - Web routes (rarely used in API projects)
-
-**Organization**:
-
-**`routes/api.php`**:
-- All API resource routes
-- Must be inside `auth:api` middleware group
-- Uses `Route::resource()` for standard CRUD operations
-- Example: `Route::resource('examples', ExamplesController::class)`
-
-**`routes/auth.php`**:
-- Public routes: `login`, `refresh-token` (no auth required)
-- Protected routes: `logout` (requires `auth:api` middleware)
-- All routes automatically prefixed with `/auth`
-
-**`routes/web.php`**:
-- Web routes (typically not used in API-only projects)
-- Can be used for admin panels or web interfaces
-
-**Key Principles**:
-- API routes use RESTful conventions
-- All API routes require authentication
-- Routes are automatically prefixed in `RouteServiceProvider`
-- Use `Route::resource()` for standard CRUD operations
-
-**When to Add Routes**:
-- When creating a new API resource (add to `routes/api.php`)
-- When adding new authentication endpoints (add to `routes/auth.php`)
-- **Always**: Place API routes inside `auth:api` middleware group
 
 ---
 
@@ -511,18 +325,13 @@ return $this->responseToJson(
 
 ### Route Files
 
-Routes are organized into separate files based on their purpose:
-
-- **`routes/api.php`** - API endpoints (protected by `auth:api` middleware)
-- **`routes/auth.php`** - Authentication endpoints (login, logout, refresh token)
-- **`routes/web.php`** - Web routes (typically not used in API-only projects)
+- **`routes/api.php`** - API endpoints (protected by `auth:api` middleware, use `Route::resource()`)
+- **`routes/auth.php`** - Authentication endpoints (prefixed with `/auth`)
+- See `routes/api.php` and `routes/auth.php` for route structure examples
 
 ### Route Prefixes
 
-Routes are automatically prefixed in `RouteServiceProvider`:
-
-- **Auth routes**: `/auth/*` (e.g., `/auth/login`, `/auth/logout`)
-- **API routes**: `/api/*` (e.g., `/api/examples`, `/api/products`)
+Routes are automatically prefixed in `RouteServiceProvider`: `/auth/*` for auth routes, `/api/*` for API routes.
 
 ### Multiple Micro Apps and Route Prefixes
 
@@ -575,20 +384,7 @@ Authentication routes are split between public and protected. See `routes/auth.p
 
 ### Adding New Routes
 
-When adding a new resource:
-
-1. Create the controller, requests, resources, and model following the patterns
-2. Add the route to `routes/api.php`:
-   ```php
-   Route::group(['middleware' => ['auth:api']], function () {
-       Route::resource('examples', ExamplesController::class);
-       Route::resource('products', ProductsController::class);  // New route
-   });
-   ```
-
-3. The route will be available at `/api/products` with all RESTful endpoints
-
-**Note for Multiple Micro Apps**: If you have multiple micro apps (e.g., `AdminApp`, `PublicApp`), each should have its own route file with its own prefix. See the "Multiple Micro Apps and Route Prefixes" section above for details.
+Add `Route::resource('<resources>', <Resources>Controller::class)` to `routes/api.php` inside `auth:api` middleware group. See `routes/api.php` for example.
 
 ---
 
@@ -633,10 +429,15 @@ Models should contain:
 - Always include `$fillable` array for mass assignment protection
 - Use `HasFactory` trait for model factories
 - Define relationships using standard Eloquent methods
-- Use eager loading (`with()`) to prevent N+1 query problems
 - **Put all domain/business logic in models** (fat model paradigm)
 - Use query scopes for reusable query logic
 - Use accessors/mutators for data transformation
+
+### Query Optimization
+
+- **Eager loading**: Use `Model::with('relation')->get()` to prevent N+1 queries when accessing relationships
+- **Select specific fields**: Use `select()` when you don't need all columns
+- **Database indexes**: Add indexes for frequently queried columns in migrations
 
 ---
 
@@ -857,17 +658,6 @@ The `fetchResults()` method from `ApiTrait` automatically handles:
 - **No Pagination**: `?no-pagination=true`
 - **Sorting**: `?sort-by=created_at&descending=true`
 
-### Sorting
-
-The `prepareSortingQuery()` method (called automatically by `fetchResults()`) handles:
-- `sort-by`: Column name to sort by
-- `descending`: `true` for descending, `false` or omitted for ascending
-
-Example:
-```
-GET /api/examples?sort-by=created_at&descending=true&page-size=10
-```
-
 ### Custom Filtering
 
 Add custom filters in the `index()` method using `$request->filled()` checks. See `app/Http/Controllers/ApiApp/ExamplesController.php` for filtering pattern.
@@ -913,76 +703,7 @@ The `ApiCodes` helper class provides standardized HTTP status codes and messages
 
 `app/Helpers/ApiCodes.php`
 
-### Available Constants
-
-```php
-ApiCodes::SUCCESS = 200
-ApiCodes::ACCEPTED = 202
-ApiCodes::BAD_REQUEST = 400
-ApiCodes::UNAUTHENTICATED = 401
-ApiCodes::FORBIDDEN = 403
-ApiCodes::RESOURCE_NOT_FOUND = 404
-ApiCodes::METHOD_NOT_ALLOWED = 405
-ApiCodes::INTERNAL_SERVER_ERROR = 500
-ApiCodes::SERVICE_UNAVAILABLE = 503
-```
-
-### Available Methods
-
-```php
-ApiCodes::getSuccessMessage()                    // "The action was completed successfully!"
-ApiCodes::getResourceNotFoundMessage()           // "No data found!"
-ApiCodes::getGeneralErrorMessage()              // "Internal error! Please try again!"
-ApiCodes::getModelSoftDeletedMessage()          // "There is a deleted entity with this name!"
-ApiCodes::getForbiddenErrorMessage()            // "You are not allowed to perform this action!"
-ApiCodes::getWrongCredentialsMessage()          // "The credentials entered are incorrect!"
-ApiCodes::getRecordExistsErrorMessage()         // "This record exists in the database!"
-```
-
-### Usage in Controllers
-
-Always use `ApiCodes` constants and methods instead of hardcoding values:
-
-```php
-// ✅ Correct
-return $this->responseToJson(
-    ApiCodes::getSuccessMessage(),
-    ApiCodes::SUCCESS,
-    $data
-);
-
-// ❌ Wrong
-return $this->responseToJson(
-    'Success',
-    200,
-    $data
-);
-```
-
-### Adding New Codes/Messages
-
-When you need a new status code or message:
-
-1. Add the constant to `ApiCodes` class:
-   ```php
-   const CUSTOM_ERROR = 422;
-   ```
-
-2. Add the message method:
-   ```php
-   public static function getCustomErrorMessage(): string
-   {
-       return 'Custom error message!';
-   }
-   ```
-
-3. Use it in controllers:
-   ```php
-   return $this->responseToJson(
-       ApiCodes::getCustomErrorMessage(),
-       ApiCodes::CUSTOM_ERROR
-   );
-   ```
+See `app/Helpers/ApiCodes.php` for available constants and methods. Always use `ApiCodes` constants and methods - never hardcode values.
 
 ---
 
@@ -1010,23 +731,7 @@ When you need a new status code or message:
 
 **Location**: `app/Traits/CommandTrait.php`
 
-**Purpose**: Enables the `--app` option for custom artisan commands.
-
-**Used By**: `MakeController`, `MakeRequest`, `MakeResource`, `MakeModel`
-
-**How It Works**:
-
-1. Adds `--app` option to commands
-2. Converts app name to namespace (e.g., `--app=api` → `ApiApp`)
-3. Places files in appropriate subfolders
-
-**Example**:
-```bash
-php artisan make:controller ApiApp/ProductsController --app=api
-# Creates: app/Http/Controllers/ApiApp/ProductsController.php
-```
-
-**Important**: Models don't use app subfolders, but the trait is still used for consistency.
+Enables `--app` option for custom commands. Converts `--app=api` → `ApiApp` namespace. Models exception: always go directly in `app/Models/`.
 
 ---
 
@@ -1080,51 +785,6 @@ All custom commands support the `--app` option to organize files by app type:
 
 ---
 
-## Exception Handling
-
-### Exception Handler
-
-**Location**: `app/Exceptions/Handler.php`
-
-The exception handler manages how exceptions are reported and rendered. Currently uses Laravel's default behavior, but can be customized for API-specific error responses.
-
-### Custom Exception Responses
-
-To customize exception responses for API endpoints, modify the `render()` method in `app/Exceptions/Handler.php`. See the file for current implementation and add API-specific error handling as needed.
-
----
-
-## Middleware
-
-### Authentication Middleware
-
-All API routes use `auth:api` middleware (Laravel Passport):
-
-```php
-Route::group(['middleware' => ['auth:api']], function () {
-    // Protected routes
-});
-```
-
-### Available Middleware
-
-Located in `app/Http/Middleware/`:
-- `Authenticate.php` - Handles authentication
-- `EncryptCookies.php` - Cookie encryption
-- `TrustProxies.php` - Proxy configuration
-- `VerifyCsrfToken.php` - CSRF protection (typically disabled for APIs)
-
-### Custom Middleware
-
-To create custom middleware:
-
-```bash
-php artisan make:middleware CustomMiddleware
-```
-
-Register in `app/Http/Kernel.php` and use in routes.
-
----
 
 ## Key Files Reference
 
@@ -1161,182 +821,13 @@ Register in `app/Http/Kernel.php` and use in routes.
 
 ---
 
-## Important Decision Points & Clarifications
-
-### When to Use Individual Resource vs List Resource
-
-- **Individual Resource**: Use for single items (`show`, `store`, `update` endpoints)
-- **List Resource**: Use for collections (`index` endpoint)
-- Both use the same `resourceFields($request)` method, but separating them allows for future customization
-
-### Service Return Format
-
-**Resources format (Recommended for all endpoints):**
-- Use `getJsonResponse($items, ResourceClass::class)` which automatically handles:
-  - Single items: Uses `ResourceClass::make()`
-  - Collections: Uses `ResourceClass::collection()`
-- This keeps the response format consistent
-
-### Validation: Where to Apply
-
-- **Form Requests**: Always use Form Requests for controller methods
-- **Base Request**: For `index`, `show`, `destroy` (filters, query params)
-- **Store Request**: For `store` (required fields)
-- **Update Request**: For `update` (use `sometimes` for optional fields)
-
-### Error Handling Strategy
-
-- **Controllers**: Use methods from `ApiTrait` (`resourceNotFound()`, `generalError()`, etc.)
-- **Always use ApiCodes**: Never hardcode status codes or messages
-- **Consistent responses**: All errors follow the same `{ message, data, meta }` format
-
-### Filtering Strategy
-
-- **All filtering in `index()`**: Never create separate search/filter endpoints
-- **Use query parameters**: All filters come from request query parameters
-- **Use `fetchResults()`**: Automatically handles pagination and sorting
-
-### Model Location Strategy
-
-- **Models directly in `app/Models/`**: No subfolders, shared across the app
-- **Why**: Prevents duplication and allows models to be used by multiple app types
-
-### Query Optimization
-
-- **Eager loading**: Use `Model::with('relation')->get()` to prevent N+1 queries
-- **Select specific fields**: Use `select()` when you don't need all columns
-- **Indexes**: Add database indexes for frequently queried columns
-
----
-
-## Example References in the Codebase
-
-- **Examples**: `app/Http/Controllers/ApiApp/ExamplesController.php` (Complete CRUD example)
-- **User Model**: `app/Models/User.php` (Model with relationships and custom methods)
-- **Auth Controller**: `app/Http/Controllers/AuthApp/AuthController.php` (Authentication patterns)
-- **ApiTrait**: `app/Traits/ApiTrait.php` (All response methods)
-
-Use these as live templates when creating new features.
-
----
-
-## Common Mistakes to Avoid
-
-### ❌ Wrong: Models in Subfolders
-```php
-// DON'T DO THIS
-namespace App\Models\ApiApp;
-class Example extends Model { }
-```
-
-### ✅ Correct: Models Directly in Models
-```php
-// DO THIS
-namespace App\Models;
-class Example extends Model { }
-```
-
-### ❌ Wrong: Hardcoded Status Codes
-```php
-// DON'T DO THIS
-return response()->json($data, 200);
-```
-
-### ✅ Correct: Use ApiCodes
-```php
-// DO THIS
-return $this->responseToJson(
-    ApiCodes::getSuccessMessage(),
-    ApiCodes::SUCCESS,
-    $data
-);
-```
-
-### ❌ Wrong: Filtering Outside index()
-```php
-// DON'T DO THIS
-public function search(ExampleRequest $request) {
-    // Filtering logic here
-}
-```
-
-### ✅ Correct: All Filtering in index()
-```php
-// DO THIS
-public function index(ExampleRequest $request) {
-    $query = Example::query();
-    // All filtering logic here
-    if ($request->filled('search')) {
-        $query->where('title', 'like', '%' . $request->search . '%');
-    }
-    return $this->getJsonResponse($this->fetchResults($query), ExampleListResource::class);
-}
-```
-
-### ❌ Wrong: Wrong Resource Type
-```php
-// DON'T DO THIS
-return $this->getJsonResponse($examples, ExampleIndividualResource::class); // For collection
-```
-
-### ✅ Correct: Use Appropriate Resource
-```php
-// DO THIS
-// For collections (index)
-return $this->getJsonResponse($examples, ExampleListResource::class);
-
-// For single items (show, store, update)
-return $this->getJsonResponse($example, ExampleIndividualResource::class);
-```
-
-### ❌ Wrong: Missing Request Validation
-```php
-// DON'T DO THIS
-public function store(Request $request) {
-    $example = Example::create($request->all());
-}
-```
-
-### ✅ Correct: Use Form Requests
-```php
-// DO THIS
-public function store(StoreExampleRequest $request) {
-    $example = Example::create($request->all());
-}
-```
-
-### ❌ Wrong: Returning Models Directly
-```php
-// DON'T DO THIS
-return $example;
-```
-
-### ✅ Correct: Use Resources
-```php
-// DO THIS
-return $this->getJsonResponse($example, ExampleIndividualResource::class);
-```
-
----
-
 ## Best Practices
 
-1. **Always validate**: Use Form Requests for all controller methods
-2. **Always use Resources**: Never return models directly, always wrap in Resources
-3. **Consistent error handling**: Use methods from `ApiTrait` for all error responses
-4. **Follow naming conventions**: 
-   - Controllers: Plural, PascalCase (e.g., `ProductsController`)
-   - Models: Singular, PascalCase (e.g., `Product`)
-   - Requests: Descriptive (e.g., `StoreProductRequest`)
-   - Resources: Descriptive (e.g., `ProductIndividualResource`)
-5. **Query optimization**: Use eager loading for relationships: `Model::with('relation')->get()`
-6. **Code organization**: Keep controllers thin, put all business logic in models (fat model paradigm)
-7. **Documentation**: Add comments for complex business logic
-8. **Always use ApiCodes**: Never hardcode status codes or messages
-9. **All filtering in index()**: Never create separate search/filter endpoints
-10. **Models in shared location**: Always place models directly in `app/Models/` (no subfolders)
-
----
+- Always use Form Requests, Resources, and `ApiCodes` constants
+- Keep controllers thin - all business logic in models (fat model paradigm)
+- All filtering in `index()` method
+- Models directly in `app/Models/` (no subfolders)
+- Follow naming: Controllers (Plural), Models (Singular), Requests/Resources (Descriptive)
 
 ---
 
