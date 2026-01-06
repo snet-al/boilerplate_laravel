@@ -16,6 +16,6 @@ class MakeModel extends ModelMakeCommand
 
     protected function getDefaultNamespace($rootNamespace)
     {
-        return is_dir(app_path('Models')) ? $rootNamespace.'\\Models\\' . $this->appNamespace() : $rootNamespace;
+        return is_dir(app_path('Models')) ? $rootNamespace.'\\Models' : $rootNamespace;
     }
 }

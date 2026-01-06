@@ -13,8 +13,9 @@ trait ApiTrait
      * @param $responseMessage
      * @param $statusId
      * @param array $data
+     * @param array $additional Additional data to merge into the response (e.g., tokens, metadata)
      */
-    public function responseToJson($responseMessage, $statusId, $data = [])
+    public function responseToJson($responseMessage, $statusId, $data = [], $additional = [])
     {
         $meta = [];
         if ($data instanceof AnonymousResourceCollection && request('page-size')) {
@@ -29,12 +30,18 @@ trait ApiTrait
             ];
         }
 
-        return response()
-            ->json([
-                'message' => $responseMessage,
-                'data' => $data,
-                'meta' => $meta,
-            ], $statusId);
+        $response = [
+            'message' => $responseMessage,
+            'data' => $data,
+            'meta' => $meta,
+        ];
+
+        // Add additional data (like token) to the response
+        if (!empty($additional)) {
+            $response = array_merge($response, $additional);
+        }
+
+        return response()->json($response, $statusId);
     }
 
     public function successResponseWithData($data)
